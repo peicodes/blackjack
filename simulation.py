@@ -6,6 +6,7 @@ Therefore, we simply draw a set number of cards prior to each hand, then 1v1 the
 '''
 
 from shoe import Shoe
+import pdb
 
 class Simulation:
 
@@ -68,49 +69,89 @@ class Simulation:
 
 	def run(self):
 		while not self.shoe.is_finished():
-			if self.shoe.true_count() > 0:
+			if self.shoe.true_count() > -0.5:
 				self.balance += self.play()
-				print("Balance: ", self.balance)
 
 			#draw a number of cards for info
 			for i in range(10):
 				self.shoe.draw()
+		return self.balance
 
 	def play(self): #play returns amount of money won/lost
 		bet = self.MIN_BET
 		dealer_hand = [self.shoe.draw(), self.shoe.draw()]
 		player_hand = [self.shoe.draw(), self.shoe.draw()]
+		player_games = [] # for splits
 
-		#check for blackjacks first
+		#check for blackjacks
+		dbj = self.blackjack(dealer_hand)
+		pbj = self.blackjack(player_hand)
+		if dbj and pbj: return 0
+		if dbj: return -1 * bet
+		if pbj: return bet
 
 		#run the player hand and stop if there's a loss
 		player_result = self.run_player_hand(dealer_hand, player_hand)
-		print("Player hand: ", player_hand)
 		if player_result == 'P':
-			
-			
-			print("Unimplemented Split")
-			return 0
-		elif player_result == 'DB':
-			return -1 * bet * 2
-		elif player_result == 'B':
-			return -1 * bet
+			#store each hand and metadata as a tuples
+			player_games = map(lambda hand: (hand, 'U', 0), self.expand_hands(player_hand))
+			#run each hand
+			new_player_games = []
+			for game in player_games:
+				new_player_games.append((game[0], self.run_player_hand(dealer_hand, game[0]), game[2]))
+			player_games = new_player_games
+		else:
+			player_games = [(player_hand, player_result, 0)]
 
-		#run the dealer hand if the player hasn't busted
+		#split the busted games and nonbusted games
+		bust_games = []
+		nonbust_games = []
+		for game in player_games:
+			if game[1] == 'DB':
+				game = (game[0], game[1], -2 * bet)
+				bust_games.append(game)
+			elif game[1] == 'B':
+				game = (game[0], game[1], -1 * bet)
+				bust_games.append(game)
+			else:
+				nonbust_games.append(game)
+
+		#run the dealer hand
 		dealer_result = self.run_dealer_hand(dealer_hand)
-		print("Dealer hand: ", dealer_hand)
+		#print("Dealer hand: ", dealer_hand)
 
-		#get the bet value
-		if player_result == 'DS':
-			bet *= 2
+		#compare against each player hand
+		new_nonbust_games = []
+		for game in nonbust_games:
+			gain = self.hand_result(dealer_result, dealer_hand, game[1], game[0]) * bet
+			if game[1] == 'DS': gain *= 2
+			new_nonbust_games.append((game[0], game[1], gain))
+		nonbust_games = new_nonbust_games
 
-		return self.hand_result(dealer_result, dealer_hand, player_result, player_hand) * bet
+		#cumulate results
+		sum = 0
+		for game in nonbust_games + bust_games:
+			#print("Player hand: ", game[0], "Gain: ", game[2])
+			sum += game[2]
+
+		return sum
+		
+
+	def blackjack(self, hand):
+		if 1 in hand and 10 in hand: return True
+		return False
+
+
+	#returns a list of non-splittable hands, assuming hand is already splittable and its 2 cards
+	def expand_hands(self, player_hand):
+		if player_hand[0] != player_hand[1]:
+			return [player_hand]
+		return self.expand_hands([player_hand[0], self.shoe.draw()]) + self.expand_hands([player_hand[0], self.shoe.draw()])
 
 	def hand_result(self, dealer_result, dealer_hand, player_result, player_hand):
 		#we'll need these more than once
 		soft_value = self.soft_value(player_hand)
 		dealer_soft_value = self.soft_value(dealer_hand)
-
 		#finalize winner and return net gain/loss
 		if dealer_result == 'B' or dealer_soft_value < soft_value: 
 			return 1
@@ -170,7 +211,7 @@ class Simulation:
 			sum += card
 			if card == 1:
 				ace = True
-		if sum <= 11:
+		if ace and sum <= 11:
 			return sum + 10
 		return sum
 		
