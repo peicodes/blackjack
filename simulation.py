@@ -66,11 +66,16 @@ class Simulation:
 		self.shoe = Shoe(num_decks)
 		self.balance = 0
 		self.lower_balance = 0
+		self.playing = True
 
 	def run(self):
 		while not self.shoe.is_finished():
-			if self.shoe.true_count() > -0.5:
-				self.balance += self.play()
+			if self.shoe.true_count() < -1:
+				self.playing = False
+			elif self.shoe.true_count() > 1:
+				self.playing = True
+
+			if self.playing: self.balance += self.play()
 
 			#draw a number of cards for info
 			for i in range(10):
@@ -78,7 +83,10 @@ class Simulation:
 		return self.balance
 
 	def play(self): #play returns amount of money won/lost
-		bet = self.MIN_BET
+		tc = round(self.shoe.true_count())
+		bet = max(self.MIN_BET * round((tc + 1)/2), self.MIN_BET)
+
+
 		dealer_hand = [self.shoe.draw(), self.shoe.draw()]
 		player_hand = [self.shoe.draw(), self.shoe.draw()]
 		player_games = [] # for splits
@@ -88,7 +96,7 @@ class Simulation:
 		pbj = self.blackjack(player_hand)
 		if dbj and pbj: return 0
 		if dbj: return -1 * bet
-		if pbj: return bet
+		if pbj: return bet * 3/2
 
 		#run the player hand and stop if there's a loss
 		player_result = self.run_player_hand(dealer_hand, player_hand)
