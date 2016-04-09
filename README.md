@@ -1,6 +1,8 @@
 # blackjack
 Blackjack is a card counting simulation tool. It is used to prove that a simple card counting and betting strategy can be reliably profitable.
 
+To run the simulation, run test.py. To change the minimum bet, change MIN_BET in simulation.py.
+
 ### Playing Strategy
 The playing strategy used is the basic strategy table for blackjack: http://www.blackjackinstitute.com/store/Basic_Strategy_Chart.php
 
